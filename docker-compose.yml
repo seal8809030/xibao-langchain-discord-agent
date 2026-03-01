@@ -1,0 +1,34 @@
+services:
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: LangchainEx-DiscordBot
+    restart: unless-stopped
+    # 載入環境變量
+    env_file:
+      - .env
+    # 將當前目錄掛載到容器內
+    volumes:
+      - .:/app
+      # 【關鍵改善】使用具名卷隔離虛擬環境，持久化且與鏡像同步
+      - discord_bot_venv:/opt/venv
+      # 確保日誌目錄存在
+      - ./logs:/app/logs
+    # 允許容器存取宿主機的 localhost
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # 優先使用 .env 中的 AI_API_BASE，若無則預設為 host.docker.internal
+      - AI_API_BASE=${AI_API_BASE:-http://host.docker.internal:10909}
+      - TZ=${TZ:-Asia/Taipei}
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  # 定義具名卷，防止與宿主機的匿名卷衝突
+  discord_bot_venv:

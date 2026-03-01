@@ -1,0 +1,32 @@
+[project]
+name = "langchainex"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ccxt",
+    "einops",
+    "func-timeout",
+    "huggingface-hub",
+    "ipykernel",
+    "langchain",
+    "langchain-anthropic",
+    "langchain-community",
+    "langchain-google-genai",
+    "langchain-openai",
+    "langchain-tavily",
+    "langgraph-cli[inmem]",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pynvml",
+    "python-dotenv",
+    "safetensors",
+    "tqdm",
+    "Pillow",
+    "openai",
+    "discord.py",
+    "aiohttp",
+    "markitdown[all]>=0.1.5",
+]

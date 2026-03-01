@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.python-version
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log*
+
+# Docker
+.env
+*.example
+
+# Project specific
+README.md
+main.ipynb
+main_test.py
+Unknown.*
