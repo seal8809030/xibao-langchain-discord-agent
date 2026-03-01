@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: LangchainEx-DiscordBot
+    container_name: xibao-discord-agent
     restart: unless-stopped
     # 載入環境變量
     env_file:
