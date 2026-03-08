@@ -12,3 +12,9 @@ wheels/
 # Secrets and Logs
 .env
 *.log
+
+# Data (runtime database)
+data/
+
+# Android build artifacts
+android/
