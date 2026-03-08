@@ -23,16 +23,29 @@ from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
+# Import config to get timezone
+import config
+
 # ============================================================================
 # 內部工具 (Utilities)
 # ============================================================================
 
-_TZ_UTC = timezone.utc
-_TZ_TAIPEI = timezone(timedelta(hours=8))
+# 嘗試從 config 獲取時區
+try:
+    from zoneinfo import ZoneInfo
+    _SERVER_TZ = ZoneInfo(config.SERVER_TIMEZONE)
+except Exception:
+    # 回退到 UTC
+    _SERVER_TZ = timezone.utc
 
 
-def _utc_now() -> str:
-    return datetime.now(_TZ_UTC).isoformat()
+def _server_now() -> str:
+    """產生符合 Server 時區設定的 ISO8601 時間字串。"""
+    # ZoneInfo 物件需要搭配 astimezone 使用
+    if isinstance(_SERVER_TZ, timezone):
+        return datetime.now(_SERVER_TZ).isoformat()
+    else:
+        return datetime.now().astimezone(_SERVER_TZ).isoformat()
 
 
 def _generate_pairing_code() -> str:
@@ -127,10 +140,10 @@ class DeviceStore:
                     is_charging INTEGER DEFAULT 0,
                     latitude REAL,
                     longitude REAL,
-                    last_seen TEXT,                    -- UTC ISO8601
+                    last_seen TEXT,                    -- ISO8601 with timezone
                     model_info TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT,
+                    updated_at TEXT
                 );
                 
                 -- 2. Bindings 關係表：確保 1:1 獨佔關係
@@ -140,7 +153,7 @@ class DeviceStore:
                     discord_user_id TEXT PRIMARY KEY,   -- PK: One user, one device
                     device_id TEXT UNIQUE,             -- Unique: Exclusive lock
                     device_name TEXT,
-                    bound_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    bound_at TEXT
                 );
                 
                 -- 建立索引加速查詢
@@ -153,7 +166,7 @@ class DeviceStore:
                     device_id TEXT NOT NULL,
                     log_type TEXT NOT NULL,            -- 'notification', 'location', etc.
                     payload TEXT NOT NULL,             -- JSON
-                    uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    uploaded_at TEXT
                 );
                 
                 -- 優化常用篩選路徑
@@ -175,19 +188,31 @@ class DeviceStore:
             'device_name', 'battery_level', 'is_charging', 
             'latitude', 'longitude', 'model_info'
         }
-        set_clause = ", ".join([f"{k} = :{k}" for k in kwargs if k in valid_keys])
-        set_clause += ", last_seen = :last_seen, updated_at = :updated_at"
         
         params = {k: v for k, v in kwargs.items() if k in valid_keys}
-        params['device_id'] = device_id
-        params['last_seen'] = _utc_now()
-        params['updated_at'] = _utc_now()
         
-        sql = f"""
-            INSERT INTO devices (device_id, {', '.join(params.keys())})
-            VALUES (:device_id, {', '.join(':' + k for k in params.keys())})
-            ON CONFLICT(device_id) DO UPDATE SET {set_clause}
-        """
+        # 如果沒有額外參數，只更新時間戳記
+        if not params:
+            params['device_id'] = device_id
+            params['last_seen'] = _server_now()
+            params['updated_at'] = _server_now()
+            
+            with self._get_conn() as conn:
+                conn.execute("""
+                    INSERT INTO devices (device_id, last_seen, updated_at)
+                    VALUES (:device_id, :last_seen, :updated_at)
+                    ON CONFLICT(device_id) DO UPDATE SET 
+                        last_seen = :last_seen, 
+                        updated_at = :updated_at
+                """, params)
+            return
+
+        set_clause = ", ".join([f"{k} = :{k}" for k in params.keys()])
+        set_clause += ", last_seen = :last_seen, updated_at = :updated_at"
+        
+        params['device_id'] = device_id
+        params['last_seen'] = _server_now()
+        params['updated_at'] = _server_now()
         
         # SQLite Python 3.24+ supports UPSERT
         # For older versions, we use REPLACE which might reset rowid
@@ -203,8 +228,8 @@ class DeviceStore:
         """追加歷史日誌"""
         with self._get_conn() as conn:
             conn.execute(
-                "INSERT INTO device_logs (device_id, log_type, payload) VALUES (?, ?, ?)",
-                (device_id, log_type, json.dumps(payload, ensure_ascii=False))
+                "INSERT INTO device_logs (device_id, log_type, payload, uploaded_at) VALUES (?, ?, ?, ?)",
+                (device_id, log_type, json.dumps(payload, ensure_ascii=False), _server_now())
             )
             # TODO: 未來可加入 Background Task 進行數據清理，避免影響寫入效能
 
@@ -237,7 +262,7 @@ class DeviceStore:
                         device_id = excluded.device_id,
                         device_name = excluded.device_name,
                         bound_at = excluded.bound_at
-                """, (discord_user_id, device_id, device_name or f"Device {device_id[:8]}", _utc_now()))
+                """, (discord_user_id, device_id, device_name or f"Device {device_id[:8]}", _server_now()))
                 return True
         except sqlite3.IntegrityError:
             # 理論上被 ON CONFLICT 捕獲，這裡是 fallback
@@ -316,7 +341,19 @@ class DeviceStore:
         """簡單判斷設備是否在線 (基於最後上線時間)"""
         try:
             dt = datetime.fromisoformat(last_seen_iso.replace('Z', '+00:00'))
-            diff = datetime.now(_TZ_UTC) - dt.replace(tzinfo=_TZ_UTC)
+            # 統一轉換為 Server Timezone 進行比較
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=_SERVER_TZ)
+            else:
+                dt = dt.astimezone(_SERVER_TZ)
+            
+            # 取得目前的 Server Time
+            if isinstance(_SERVER_TZ, timezone):
+                now = datetime.now(_SERVER_TZ)
+            else:
+                now = datetime.now().astimezone(_SERVER_TZ)
+                
+            diff = now - dt
             return diff.total_seconds() < (minutes * 60)
         except:
             return False
