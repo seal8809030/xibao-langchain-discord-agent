@@ -12,6 +12,10 @@ from MyLogger import ShowLog, setup_logger
 script_dir = os.path.dirname(os.path.abspath(__file__))
 script_name = os.path.splitext(os.path.basename(__file__))[0]
 logs_dir = os.path.join(script_dir, 'logs')
+
+# 確保 logs 目錄存在
+os.makedirs(logs_dir, exist_ok=True)
+
 setup_logger(script_name, logs_dir, 7)
 
 if __name__ == "__main__":

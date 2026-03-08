@@ -9,7 +9,7 @@ class SessionContext:
     會話上下文實例。
     保存單次對話所需的所有狀態：資源註冊表、已載入技能、Discord 上下文等。
     """
-    def __init__(self, guild: Optional[discord.Guild] = None, channel: Optional[discord.abc.Messageable] = None, loop: Any = None):
+    def __init__(self, guild: Optional[discord.Guild] = None, channel: Optional[discord.abc.Messageable] = None, loop: Any = None, discord_user_id: Optional[str] = None):
         # 資源管理
         self.loop = loop
         self.resources = ResourceRegistry()
@@ -21,6 +21,7 @@ class SessionContext:
         # Discord 上下文
         self.guild = guild
         self.channel = channel
+        self.discord_user_id = discord_user_id  # Discord 用戶 ID
         
         # 額外元數據
         self.metadata: Dict[str, Any] = {}

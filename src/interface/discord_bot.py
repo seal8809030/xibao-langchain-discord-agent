@@ -26,6 +26,74 @@ class DiscordBotInterface:
         self.client = client
         self._markitdown = MarkItDown()
 
+    async def register_slash_commands(self):
+        """註冊斜線指令 (使用 Hybrid Commands)。"""
+        # commands.Bot 本身就繼承了 Client，可以直接用 bot.tree
+        # 但在這裡我們使用 Hybrid Commands
+        
+        @self.client.hybrid_command(name="bind", description="綁定您的 Android 設備")
+        @discord.app_commands.describe(device_id="設備的 ID (MAC Address)")
+        async def bind_command(ctx, device_id: str):
+            """綁定設備 (可作為 /bind 或 !bind 使用)"""
+            # Hybrid command 可以作為 Slash Command 或 Prefix Command
+            # 如果是 Slash Command，回應需要用 interaction
+            # 如果是 Prefix Command，回應直接用 ctx.send
+            if hasattr(ctx, 'interaction') and ctx.interaction:
+                # Slash command
+                await self.handle_bind_command(ctx, device_id)
+            else:
+                # Prefix command
+                await ctx.defer()  # 為了回覆
+                await self.handle_bind_command(ctx, device_id)
+
+        @self.client.hybrid_command(name="unbind", description="解除綁定您的 Android 設備")
+        async def unbind_command(ctx):
+            """解除設備綁定 (可作為 /unbind 或 !unbind 使用)"""
+            if hasattr(ctx, 'interaction') and ctx.interaction:
+                await self.handle_unbind_command(ctx)
+            else:
+                await ctx.defer()
+                await self.handle_unbind_command(ctx)
+
+        # 同步指令樹
+        await self.client.tree.sync()
+        ShowLog("[介面] 斜線指令已同步")
+
+    async def handle_bind_command(self, ctx, device_id: str):
+        """處理 /bind 指令。"""
+        from src.db.device_store import get_store
+        store = get_store()
+        
+        # 取得用戶 ID
+        user_id = str(ctx.author.id)
+        user_name = ctx.author.display_name
+        
+        success = store.bind_device(user_id, device_id, user_name)
+        
+        if success:
+            msg = f"✅ 設備綁定成功！\n您的設備 ID: `{device_id}`\n請確保設備已連線並上傳數據。"
+        else:
+            msg = "❌ 設備綁定失敗，請稍後再試。"
+            
+        # 使用 ctx.send 適用於所有情況
+        await ctx.send(msg)
+
+    async def handle_unbind_command(self, ctx):
+        """處理 /unbind 指令。"""
+        from src.db.device_store import get_store
+        store = get_store()
+        
+        user_id = str(ctx.author.id)
+        success = store.unbind_device(user_id)
+        
+        if success:
+            msg = "✅ 設備已解除綁定。"
+        else:
+            msg = "❌ 解除綁定失敗，您可能尚未綁定設備。"
+            
+        # 使用 ctx.send 適用於所有情況
+        await ctx.send(msg)
+
     async def _format_message(self, msg: discord.Message, context: SessionContext) -> BaseMessage:
         """將 Discord 訊息轉換為 LangChain 訊息物件並註冊資源。"""
         is_ai = msg.author == self.client.user
@@ -266,7 +334,12 @@ class DiscordBotInterface:
 
         try:
             # 2. 初始化 Orchestrator
-            main_context = SessionContext(guild=message.guild, channel=message.channel, loop=asyncio.get_running_loop())
+            main_context = SessionContext(
+                guild=message.guild, 
+                channel=message.channel, 
+                loop=asyncio.get_running_loop(),
+                discord_user_id=str(message.author.id)
+            )
             base_tools = [TavilySearch()] + get_base_tools(main_context)
             orchestrator = Orchestrator(main_context, base_tools)
             
@@ -306,3 +379,4 @@ class DiscordBotInterface:
         @self.client.event
         async def on_message(message: discord.Message):
             await self.handle_message(message)
+

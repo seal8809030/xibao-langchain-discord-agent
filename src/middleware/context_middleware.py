@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import sys
 import importlib.util
 from typing import Any, Dict, List, Optional, Callable, Set
 from langchain_core.messages import (
@@ -109,8 +110,13 @@ class ContextInjectedMiddleware(AgentMiddleware):
         if not os.path.exists(tools_path):
             return []
 
+        # 確保 src 目錄在 sys.path 中
+        src_path = os.path.join(os.getcwd(), 'src')
+        if src_path not in sys.path:
+            sys.path.insert(0, src_path)
+
         try:
-            spec = importlib.util.spec_from_file_location(f"skills.{skill_name}.tools", tools_path)
+            spec = importlib.util.spec_from_file_location(f"src.skills.{skill_name}.tools", tools_path)
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
