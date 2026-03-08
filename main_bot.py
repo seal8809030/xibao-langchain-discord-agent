@@ -1,6 +1,7 @@
 # main_bot.py
 
 import discord
+from discord.ext import commands
 import os
 from dotenv import load_dotenv
 from src.interface.discord_bot import DiscordBotInterface
@@ -11,6 +12,10 @@ import config
 script_dir = os.path.dirname(os.path.abspath(__file__))
 script_name = os.path.splitext(os.path.basename(__file__))[0]
 logs_dir = os.path.join(script_dir, 'logs')
+
+# 確保 logs 目錄存在
+os.makedirs(logs_dir, exist_ok=True)
+
 setup_logger(script_name, logs_dir, 7)
 
 # 強制排除 aiodns：在某些環境下 aiodns 會導致 DNS 解析失敗
@@ -25,14 +30,16 @@ except ImportError:
 
 # 載入環境變數
 load_dotenv()
-DISCORD_TOKEN = config.DISCORD_BOT_TOKEN # os.getenv("DISCORD_TOKEN")
+DISCORD_TOKEN = config.DISCORD_BOT_TOKEN
 
 
 def main():
-    # 1. 初始化 Discord Client
+    # 1. 初始化 Discord Bot (使用 commands.Bot 以支援 Hybrid Commands)
     intents = discord.Intents.default()
     intents.message_content = True
-    client = discord.Client(intents=intents)
+    
+    # 使用 commands.Bot 替代 discord.Client
+    client = commands.Bot(command_prefix='!', intents=intents)
 
     # 2. 初始化重構後的機器人介面
     bot = DiscordBotInterface(client)
@@ -43,6 +50,8 @@ def main():
     @client.event
     async def on_ready():
         ShowLog(f"系統已啟動：{client.user} (Refactored Mode)")
+        # 同步指令
+        await bot.register_slash_commands()
 
     # 4. 啟動機器人
     if DISCORD_TOKEN:

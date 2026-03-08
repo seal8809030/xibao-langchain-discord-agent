@@ -23,8 +23,17 @@ AI_API_KEY: Final[str] = get_env_or_raise("AI_API_KEY")
 AI_API_BASE: Final[str] = get_env_or_raise("AI_API_BASE", "http://localhost:10909")
 AI_MODEL_ID: Final[str] = get_env_or_raise("AI_MODEL_ID", "gemini-3-flash")
 
-# 啟動偵錯日誌：確認環境變量載入情況
-if os.getenv("PYTHONUNBUFFERED") == "1":
-    print(f"[DEBUG] 偵測到 Docker 環境", file=sys.stderr)
-    print(f"[DEBUG] AI_API_BASE: {AI_API_BASE}", file=sys.stderr)
-    print(f"[DEBUG] AI_MODEL_ID: {AI_MODEL_ID}", file=sys.stderr)
+# Google Maps API 配置
+GOOGLE_MAPS_API_KEY: Final[str] = os.getenv("GOOGLE_MAPS_API_KEY", "")
+
+# 設備資料庫配置
+DEVICE_DB_PATH: Final[str] = os.getenv("DEVICE_DB_PATH", "data/devices.db")
+
+# Server 時區配置
+SERVER_TIMEZONE: Final[str] = os.getenv("SERVER_TIMEZONE", "Asia/Taipei")
+
+# 確保 data 目錄存在
+data_dir = os.path.dirname(DEVICE_DB_PATH)
+if data_dir and not os.path.exists(data_dir):
+    os.makedirs(data_dir, exist_ok=True)
+
