@@ -19,9 +19,10 @@ ENV TZ=Asia/Taipei
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev
 
-# 安裝系統依賴 (例如 antiword 用於處理舊版 .doc 文件)
+# 安裝系統依賴 (例如 antiword 用於處理舊版 .doc 文件，curl 用於健康檢查)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     antiword \
+    curl \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
 

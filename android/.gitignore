@@ -1,0 +1,22 @@
+# Android Git Ignore
+
+# Built artifacts
+*.apk
+*.aar
+*.ap_
+*.dex
+
+# Gradle files
+.gradle/
+build/
+
+# Local configuration files (Secrets)
+.env
+local.properties
+
+# Android Studio files
+.idea/
+*.iml
+.cxx/
+capture/
+*.hprof
